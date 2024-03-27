@@ -9,7 +9,15 @@ const LoginForm = () => {
   const [userFormData, setUserFormData] = useState({ email: '', password: '' });
   const [validated] = useState(false);
   const [showAlert, setShowAlert] = useState(false);
-  const [loginUser] = useMutation(LOGIN_USER);
+
+  const [loginUser, { error }] = useMutation(LOGIN_USER, {
+    onCompleted: (data) => {
+      // Save the token upon successful login
+      Auth.login(data.login.token);
+      // Optionally, save the token to local storage
+      localStorage.setItem('token', data.login.token);
+    },
+  });
 
   const handleInputChange = (event) => {
     const { name, value } = event.target;
