@@ -4,10 +4,9 @@ const { signToken } = require('../utils/auth');
 
 const resolvers = {
   Query: {
-    // retrieve the logged in user from the context and find the user details in the database
     me: async (parent, args, context) => {
       if (context.user) {
-        return User.findOne({ _id: context.user._id });
+        return await User.findById(context.user._id).populate('savedBooks');
       }
       throw new AuthenticationError('You need to be logged in!');
     },
@@ -16,15 +15,13 @@ const resolvers = {
   Mutation: {
     login: async (parent, { email, password }) => {
       const user = await User.findOne({ email });
-
       if (!user) {
-        throw new AuthenticationError('No user with this email found!');
+        throw new AuthenticationError('No user found with this email address');
       }
 
       const correctPw = await user.isCorrectPassword(password);
-
       if (!correctPw) {
-        throw new AuthenticationError('Incorrect password!');
+        throw new AuthenticationError('Incorrect password');
       }
 
       const token = signToken(user);
@@ -32,41 +29,48 @@ const resolvers = {
     },
 
     addUser: async (parent, { username, email, password }) => {
-      const user = await User.create({ username, email, password });
-      const token = signToken(user);
-      
-      return { token, user};
+      try {
+        const user = await User.create({ username, email, password });
+        const token = signToken(user);
+        return { token, user };
+      } catch (error) {
+        console.error(error);
+        throw new Error('Failed to create a new user.');
+      }
     },
 
-    // retrieve the logged in user from the context and add the book to the user's savedBooks array
-    saveBook: async (parent, book, context) => {
-      // If context has a `user` property, that means the user executing this mutation has a valid JWT and is logged in
+    saveBook: async (parent, { input }, context) => {
       if (context.user) {
-        return User.findOneAndUpdate(
-          { _id: context.user._id},
-          {
-            $addToSet: { savedBooks: book},
-          },
-          {
-            new: true,
-            runValidators: true 
-          }
-        );
+        try {
+          const updatedUser = await User.findByIdAndUpdate(
+            context.user._id,
+            { $push: { savedBooks: input } },
+            { new: true }
+          ).populate('savedBooks');
+
+          return updatedUser;
+        } catch (error) {
+          throw new Error('Failed to save the book.');
+        }
       }
-      // If user attempts to execute this mutation and isn't logged in, throw an error
-      throw new AuthenticationError('You need to be logged in!');
+      throw new AuthenticationError('You need to be logged in to save a book.');
     },
-    
-    // retrieve the logged in user from the context and remove the book from the user's savedBooks array
+
     removeBook: async (parent, { bookId }, context) => {
       if (context.user) {
-        return User.findOneAndUpdate(
-          { _id: context.user._id },
-          { $pull: { savedBooks: { bookId: bookId } } },
-          { new: true }
-        );
+        try {
+          const updatedUser = await User.findByIdAndUpdate(
+            context.user._id,
+            { $pull: { savedBooks: { bookId } } },
+            { new: true }
+          ).populate('savedBooks');
+
+          return updatedUser;
+        } catch (error) {
+          throw new Error('Failed to remove the book.');
+        }
       }
-      throw new AuthenticationError('You need to be logged in!');
+      throw new AuthenticationError('You need to be logged in to remove a book.');
     },
   },
 };
