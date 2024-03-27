@@ -14,11 +14,11 @@ const LoginForm = () => {
     onCompleted: (data) => {
       // Save the token upon successful login
       Auth.login(data.login.token);
-      // Optionally, save the token to local storage
+      // Saves the token to local storage as
       localStorage.setItem('token', data.login.token);
     },
   });
-
+    // checks the imput value change for the login
   const handleInputChange = (event) => {
     const { name, value } = event.target;
     setUserFormData({ ...userFormData, [name]: value });
@@ -26,36 +26,24 @@ const LoginForm = () => {
 
   const handleFormSubmit = async (event) => {
     event.preventDefault();
-
-    // check if form has everything (as per react-bootstrap docs)
-    const form = event.currentTarget;
-    if (form.checkValidity() === false) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-
     try {
-      const response = await loginUser(userFormData);
+      const { data } = await loginUser({
+        variables: { ...userFormData },
+      });
 
-      if (!response.ok) {
-        throw new Error('something went wrong!');
+      //saves token to the local storage 
+      const token = data?.login?.token;
+      if (token) {
+        Auth.login(token);
+        localStorage.setItem('token', token); 
+      } else {
+        setShowAlert(true);
       }
-
-      const { token, user } = await response.json();
-      console.log(user);
-      Auth.login(token);
-    } catch (err) {
-      console.error(err);
+    } catch (error) {
+      console.error(error);
       setShowAlert(true);
     }
-
-    setUserFormData({
-      username: '',
-      email: '',
-      password: '',
-    });
-  };
-
+  }; 
   return (
     <>
       <Form noValidate validated={validated} onSubmit={handleFormSubmit}>
